@@ -122,59 +122,58 @@ int main(int argc,char *argv[])
           {
               syslog(LOG_LOCAL0|LOG_INFO, "light sensor not found");
               close(fd);
-              break;
-          }
-          len = read(fd, data_buf, 16);
-          data_buf[len] = 0;
-          lux = atoi(data_buf);
-          close(fd);
-
-          if ((fd = open(gDisplayRegulatorPath, O_RDWR)) < 0)
-          {
-              syslog(LOG_LOCAL0|LOG_INFO, "backlight api not found");
+          }else{
+              len = read(fd, data_buf, 16);
+              data_buf[len] = 0;
+              lux = atoi(data_buf);
               close(fd);
-              break;
-          }
-          len = read(fd, data_buf, 16);
-          data_buf[len] = 0;
-          int curBrightness = atoi(data_buf);
 
-          int calcBrightness = gDisplayMinBrightness + lux/1.5;
-          if(calcBrightness > 255){
-              calcBrightness = 255;
-          }
+              if ((fd = open(gDisplayRegulatorPath, O_RDWR)) < 0)
+              {
+                  syslog(LOG_LOCAL0|LOG_INFO, "backlight api not found");
+                  close(fd);
+              }else{
+                  len = read(fd, data_buf, 16);
+                  data_buf[len] = 0;
+                  int curBrightness = atoi(data_buf);
 
-          if(abs(curBrightness - calcBrightness) > 15){
+                  int calcBrightness = gDisplayMinBrightness + lux/1.5;
+                  if(calcBrightness > 255){
+                     calcBrightness = 255;
+                  }
 
-              sprintf(data_buf, "%d", calcBrightness);
-              write(fd, data_buf, sizeof(data_buf));
-          }
-          close(fd);
+                  if(abs(curBrightness - calcBrightness) > 15){
+                     sprintf(data_buf, "%d", calcBrightness);
+                     write(fd, data_buf, sizeof(data_buf));
+                  }
+                  close(fd);
+              }
+	  }
         }
 
         if ((fd = open(gAudioJackPath, O_RDONLY)) < 0){
             syslog(LOG_LOCAL0|LOG_INFO, "audio jach api not found");
             close(fd);
-            break;
-        }
-        len = read(fd, data_buf, 9);
-        data_buf[len] = 0;
-
-        if (strcmp(data_buf, "No Device") == 0){
-            if(gAudioJackPlugged){
-              gAudioJackPlugged = false;
-              syslog(LOG_LOCAL0|LOG_INFO, "audio headset unplugged", data_buf);
-              system("amixer set \"Headphone Jack\" mute");
-              system("amixer set \"Int Spk\" unmute");
-            }
         }else{
-            if(!gAudioJackPlugged){
-              gAudioJackPlugged = true;
-              syslog(LOG_LOCAL0|LOG_INFO, "audio %s plugged", data_buf);
-              system("amixer set \"Int Spk\" mute");
-              system("amixer set \"Headphone Jack\" unmute");
-            }
-        }
+    	    len = read(fd, data_buf, 9);
+    	    data_buf[len] = 0;
+
+    	    if (strcmp(data_buf, "No Device") == 0){
+        	if(gAudioJackPlugged){
+            	    gAudioJackPlugged = false;
+            	    syslog(LOG_LOCAL0|LOG_INFO, "audio headset unplugged", data_buf);
+            	    system("amixer set \"Headphone Jack\" mute");
+            	    system("amixer set \"Int Spk\" unmute");
+        	}
+    	    }else{
+        	if(!gAudioJackPlugged){
+            	    gAudioJackPlugged = true;
+            	    syslog(LOG_LOCAL0|LOG_INFO, "audio %s plugged", data_buf);
+            	    system("amixer set \"Int Spk\" mute");
+            	    system("amixer set \"Headphone Jack\" unmute");
+        	}
+    	    }
+	}
 
         sleep(1);
         /* the next conditional will be true if we caught signal SIGUSR1 */
