@@ -115,47 +115,34 @@ int main(int argc,char *argv[])
     /* now enter an infinite loop handling connections */
     int lux;
     char data_buf[16];
+    int sensorFile = open(gLightSensorPath, O_RDONLY);
+    int regulatorFile = open(gDisplayRegulatorPath, O_RDWR);
+    int jackStatusFile = open(gAudioJackPath, O_RDONLY);
 
+    syslog(LOG_LOCAL0|LOG_INFO,"fileid: %d and %d", sensorFile, regulatorFile);
     do{
-        if(gAutoLightOn){
-          if ((fd = open(gLightSensorPath, O_RDONLY)) < 0)
-          {
-              syslog(LOG_LOCAL0|LOG_INFO, "light sensor not found");
-              close(fd);
-          }else{
-              len = read(fd, data_buf, 16);
-              data_buf[len] = 0;
-              lux = atoi(data_buf);
-              close(fd);
+        if(gAutoLightOn && sensorFile > 0 && regulatorFile > 0){
+          len = read(sensorFile, data_buf, 16);
+          data_buf[len] = 0;
+          lux = atoi(data_buf);
 
-              if ((fd = open(gDisplayRegulatorPath, O_RDWR)) < 0)
-              {
-                  syslog(LOG_LOCAL0|LOG_INFO, "backlight api not found");
-                  close(fd);
-              }else{
-                  len = read(fd, data_buf, 16);
-                  data_buf[len] = 0;
-                  int curBrightness = atoi(data_buf);
+          len = read(regulatorFile, data_buf, 16);
+          data_buf[len] = 0;
+          int curBrightness = atoi(data_buf);
 
-                  int calcBrightness = gDisplayMinBrightness + lux/1.5;
-                  if(calcBrightness > 255){
-                     calcBrightness = 255;
-                  }
+          int calcBrightness = gDisplayMinBrightness + lux/1.5;
+          if(calcBrightness > 255){
+             calcBrightness = 255;
+          }
 
-                  if(abs(curBrightness - calcBrightness) > 15){
-                     sprintf(data_buf, "%d", calcBrightness);
-                     write(fd, data_buf, sizeof(data_buf));
-                  }
-                  close(fd);
-              }
-	  }
+          if(abs(curBrightness - calcBrightness) > 15){
+             sprintf(data_buf, "%d", calcBrightness);
+             write(regulatorFile, data_buf, sizeof(data_buf));
+          }
         }
 
-        if ((fd = open(gAudioJackPath, O_RDONLY)) < 0){
-            syslog(LOG_LOCAL0|LOG_INFO, "audio jach api not found");
-            close(fd);
-        }else{
-    	    len = read(fd, data_buf, 9);
+        if(jackStatusFile > 0){
+    	    len = read(jackStatusFile, data_buf, 9);
     	    data_buf[len] = 0;
 
     	    if (strcmp(data_buf, "No Device") == 0){
@@ -174,6 +161,10 @@ int main(int argc,char *argv[])
         	}
     	    }
 	}
+	
+	lseek(sensorFile, SEEK_SET, 0);
+	lseek(regulatorFile, SEEK_SET, 0);
+	lseek(jackStatusFile, SEEK_SET, 0);
 
         sleep(1);
         /* the next conditional will be true if we caught signal SIGUSR1 */
@@ -183,6 +174,9 @@ int main(int argc,char *argv[])
         /* if we caught SIGHUP, then start handling connections again */
         gGracefulShutdown=gCaughtHupSignal=0;
     }while(1);
+    close(sensorFile);
+    close(regulatorFile);
+    close(jackStatusFile);
 
     TidyUp(); /* close the socket and kill the lock file */
 
