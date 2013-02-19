@@ -31,6 +31,7 @@ int                     gMasterSocket=-1;
 
 const char *const       gLockFilePath = "/var/run/prime-sensors.pid";
 const char *const       gLightSensorPath = "/sys/devices/platform/tegra-i2c.2/i2c-2/2-001c/show_lux";
+//const char *const       gDisplayPowerPath = "/sys/devices/platform/tegra-i2c.2/i2c-2/2-001c/bl_power";
 const char *const       gDisplayRegulatorPath = "/sys/class/backlight/pwm-backlight/brightness";
 int const               gDisplayMinBrightness = 4;
 bool                    gAutoLightOn = true;
@@ -116,6 +117,7 @@ int main(int argc,char *argv[])
     int lux;
     char data_buf[16];
     int sensorFile = open(gLightSensorPath, O_RDONLY);
+//    int displayPowerFile = open(gDisplayPowerPath, O_RDONLY);
     int regulatorFile = open(gDisplayRegulatorPath, O_RDWR);
     int jackStatusFile = open(gAudioJackPath, O_RDONLY);
 
@@ -130,15 +132,17 @@ int main(int argc,char *argv[])
           data_buf[len] = 0;
           int curBrightness = atoi(data_buf);
 
-          int calcBrightness = gDisplayMinBrightness + lux/1.5;
-          if(calcBrightness > 255){
-             calcBrightness = 255;
-          }
+	  if(curBrightness > 0){
+            int calcBrightness = gDisplayMinBrightness + lux/1.5;
+            if(calcBrightness > 255){
+        	 calcBrightness = 255;
+            }
 
-          if(abs(curBrightness - calcBrightness) > 15){
-             sprintf(data_buf, "%d", calcBrightness);
-             write(regulatorFile, data_buf, sizeof(data_buf));
-          }
+            if(abs(curBrightness - calcBrightness) > 15){
+        	 sprintf(data_buf, "%d", calcBrightness);
+                write(regulatorFile, data_buf, sizeof(data_buf));
+            }
+	  }
         }
 
         if(jackStatusFile > 0){
@@ -163,6 +167,7 @@ int main(int argc,char *argv[])
 	}
 	
 	lseek(sensorFile, SEEK_SET, 0);
+//	lseek(displayPowerFile, SEEK_SET, 0);
 	lseek(regulatorFile, SEEK_SET, 0);
 	lseek(jackStatusFile, SEEK_SET, 0);
 
